@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<!-- HTML5のドキュメントタイプを宣言 -->
+<html lang="ja">
+<!-- 言語を日本語に設定 -->
+
+<head>
+    <!-- ========================================
+         メタデータとスタイルシートの読み込み
+         ======================================== -->
+
+    <!-- 文字エンコーディングをUTF-8に設定(日本語を正しく表示するため) -->
+    <meta charset="UTF-8">
+
+    <!-- レスポンシブデザイン用の設定(スマホでも見やすく表示) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- ブラウザのタブに表示されるタイトル -->
+    <title>日記保存フォーム</title>
+
+    <!-- Bootstrap 5のCSSを読み込み(デザインを整えるためのCSSフレームワーク) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- ========================================
+         メインコンテンツエリア
+         ======================================== -->
+
+    <!-- Bootstrapのコンテナ: ページ全体を中央寄せにする -->
+    <div class="container">
+        <!-- 行(row): グリッドレイアウトのための行 -->
+        <div class="row justify-content-center">
+            <!-- 列(column): 中サイズ画面で8列分の幅を使用 -->
+            <div class="col-md-8">
+                <!-- カード: コンテンツをカード状にまとめる -->
+                <div class="card mt-5">
+                    <!-- mt-5: margin-top(上の余白)を5段階分追加 -->
+                    <div class="card-body">
+                        <!-- カードのヘッダー部分 -->
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <!-- d-flex: フレックスボックスレイアウト -->
+                            <!-- justify-content-between: 左右に要素を配置 -->
+                            <!-- align-items-center: 垂直方向に中央揃え -->
+
+                            <!-- カードのタイトル -->
+                            <h1 class="card-title mb-0">日記保存フォーム</h1>
+
+                            <!-- 一覧表示ボタン -->
+                            <a href="diary-list.html" class="btn btn-secondary">一覧を見る</a>
+
+                            <!-- 構成図表示ボタン 別タブで開く -->
+                            <a href="architecture.html" target="_blank" class="btn btn-info text-white">構成図を見る</a>
+                        </div>
+
+                        <!-- フォームセクション -->
+                        <div id="formSection">
+                            <!-- ========================================
+                                 日記入力フォーム
+                                 ======================================== -->
+                            <!-- id="dataForm": JavaScriptから操作するための識別子 -->
+                            <form id="dataForm">
+                                <!-- ========================================
+                                     入力項目1: 日付
+                                     ======================================== -->
+                                <!-- mb-3: margin-bottom(下の余白)を3段階分追加 -->
+                                <div class="mb-3">
+                                    <!-- ラベル: 入力欄の説明文 -->
+                                    <!-- for="date": id="date"の入力欄と関連付け -->
+                                    <label for="date" class="form-label">日付</label>
+
+                                    <!-- 日付入力欄 -->
+                                    <!-- type="date": カレンダーピッカーを表示 -->
+                                    <!-- required: 必須入力項目 -->
+                                    <input type="date" class="form-control" id="date" required>
+                                </div>
+
+                                <!-- ========================================
+                                     入力項目2: タイトル
+                                     ======================================== -->
+                                <div class="mb-3">
+                                    <label for="title" class="form-label">タイトル</label>
+
+                                    <!-- テキスト入力欄 -->
+                                    <!-- type="text": 1行のテキスト入力 -->
+                                    <input type="text" class="form-control" id="title" required>
+                                </div>
+
+                                <!-- ========================================
+                                     入力項目3: 内容
+                                     ======================================== -->
+                                <div class="mb-3">
+                                    <label for="content" class="form-label">内容</label>
+
+                                    <!-- AI生成ボタン -->
+                                    <div class="mb-2">
+                                        <!-- type="button": 通常のボタン(フォーム送信しない) -->
+                                        <!-- btn-secondary: グレーのボタンスタイル -->
+                                        <!-- btn-sm: 小さいサイズのボタン -->
+                                        <button type="button" class="btn btn-secondary btn-sm" id="generateContentBtn">AI で内容を生成</button>
+                                    </div>
+
+                                    <!-- 複数行テキスト入力欄 -->
+                                    <!-- rows="5": 5行分の高さ -->
+                                    <textarea class="form-control" id="content" rows="5" required></textarea>
+                                </div>
+
+                                <!-- ========================================
+                                     送信ボタン
+                                     ======================================== -->
+                                <!-- type="submit": フォームを送信するボタン -->
+                                <!-- btn-primary: 青色のボタンスタイル(メインアクション用) -->
+                                <button type="submit" class="btn btn-primary">送信</button>
+                            </form>
+
+                            <!-- ========================================
+                                 結果表示エリア
+                                 ======================================== -->
+                            <!-- JavaScriptでメッセージを動的に表示する領域 -->
+                            <!-- mt-3: margin-top(上の余白)を3段階分追加 -->
+                            <div id="result" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================
+         JavaScriptライブラリの読み込み
+         ======================================== -->
+
+    <!-- Bootstrap 5のJavaScript(モーダルやドロップダウンなどの動作に必要) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 自作のJavaScriptファイル(フォームのイベント処理を記述) -->
+    <script src="index.js"></script>
+</body>
+
+</html>

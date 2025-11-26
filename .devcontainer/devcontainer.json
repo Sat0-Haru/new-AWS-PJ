@@ -1,0 +1,20 @@
+{
+	"name": "aws_project_2025",
+	"image": "mcr.microsoft.com/devcontainers/python:3.13",
+	"features": {
+		"ghcr.io/devcontainers/features/aws-cli:1": {},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {
+			"moby": false
+		},
+		"ghcr.io/devcontainers/features/node:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.black-formatter",
+				"GitHub.copilot-chat",
+				"GitHub.copilot"
+			]
+		}
+	}
+}

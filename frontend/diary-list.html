@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!-- HTML5のドキュメントタイプを宣言 -->
+<html lang="ja">
+<!-- 言語を日本語に設定 -->
+
+<head>
+    <!-- ========================================
+         メタデータとスタイルシートの読み込み
+         ======================================== -->
+
+    <!-- 文字エンコーディングをUTF-8に設定(日本語を正しく表示するため) -->
+    <meta charset="UTF-8">
+
+    <!-- レスポンシブデザイン用の設定(スマホでも見やすく表示) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- ブラウザのタブに表示されるタイトル -->
+    <title>日記一覧</title>
+
+    <!-- Bootstrap 5のCSSを読み込み(デザインを整えるためのCSSフレームワーク) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- ========================================
+         メインコンテンツエリア
+         ======================================== -->
+
+    <!-- Bootstrapのコンテナ: ページ全体を中央寄せにする -->
+    <div class="container">
+        <!-- 行(row): グリッドレイアウトのための行 -->
+        <div class="row justify-content-center">
+            <!-- 列(column): 大サイズ画面で10列分の幅を使用 -->
+            <div class="col-lg-10">
+                <!-- カード: コンテンツをカード状にまとめる -->
+                <div class="card mt-5">
+                    <!-- mt-5: margin-top(上の余白)を5段階分追加 -->
+                    <div class="card-body">
+                        <!-- カードのヘッダー部分 -->
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <!-- d-flex: フレックスボックスレイアウト -->
+                            <!-- justify-content-between: 左右に要素を配置 -->
+                            <!-- align-items-center: 垂直方向に中央揃え -->
+
+                            <!-- カードのタイトル -->
+                            <h1 class="card-title mb-0">日記一覧</h1>
+
+                            <!-- 新規作成ボタン -->
+                            <a href="index.html" class="btn btn-primary">新規作成</a>
+                        </div>
+
+                        <!-- ========================================
+                             ローディング表示エリア
+                             ======================================== -->
+                        <!-- データ読み込み中に表示される領域 -->
+                        <div id="loading" class="text-center my-5">
+                            <!-- text-center: テキストを中央揃え -->
+                            <!-- my-5: margin-top/bottomを5段階分追加 -->
+
+                            <!-- スピナー(くるくる回るローディングアイコン) -->
+                            <div class="spinner-border text-primary" role="status">
+                                <!-- spinner-border: 円形のスピナー -->
+                                <!-- text-primary: 青色 -->
+                                <span class="visually-hidden">読み込み中...</span>
+                                <!-- visually-hidden: 視覚的に非表示だが、スクリーンリーダーには読まれる -->
+                            </div>
+                            <p class="mt-2">日記を読み込んでいます...</p>
+                        </div>
+
+                        <!-- ========================================
+                             エラー表示エリア
+                             ======================================== -->
+                        <!-- エラーが発生した場合に表示される領域 -->
+                        <div id="error" class="alert alert-danger d-none" role="alert">
+                            <!-- d-none: デフォルトで非表示(JavaScriptで表示を切り替える) -->
+                        </div>
+
+                        <!-- ========================================
+                             日記一覧表示エリア
+                             ======================================== -->
+                        <!-- 取得した日記データを動的に表示する領域 -->
+                        <div id="diaryList">
+                            <!-- JavaScriptでここに日記カードが動的に挿入される -->
+                        </div>
+
+                        <!-- ========================================
+                             空の状態表示エリア
+                             ======================================== -->
+                        <!-- 日記が1件もない場合に表示される領域 -->
+                        <div id="emptyState" class="text-center my-5 d-none">
+                            <!-- text-center: テキストを中央揃え -->
+                            <!-- my-5: margin-top/bottomを5段階分追加 -->
+                            <!-- d-none: デフォルトで非表示 -->
+
+                            <p class="text-muted mb-3">まだ日記が登録されていません。</p>
+                            <!-- text-muted: グレーのテキスト -->
+
+                            <a href="index.html" class="btn btn-primary">最初の日記を作成する</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================
+         JavaScriptライブラリの読み込み
+         ======================================== -->
+
+    <!-- Bootstrap 5のJavaScript(モーダルやドロップダウンなどの動作に必要) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 自作のJavaScriptファイル(日記一覧の表示処理を記述) -->
+    <script src="diary-list.js"></script>
+</body>
+
+</html>

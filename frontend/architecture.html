@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日記アプリ システム構成図 - コード解説付き</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        /* タブナビゲーション */
+        .tab-navigation {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: 15px 30px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #666;
+            transition: all 0.3s;
+            position: relative;
+            top: 3px;
+        }
+
+        .tab-button:hover {
+            background: #e0e0e0;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            top: 3px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* フロー図 */
+        .detailed-flow {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .flow-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .flow-description {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .flow-steps-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .flow-step-detailed {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1.3em;
+            flex-shrink: 0;
+        }
+
+        .step-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .step-layer {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: auto;
+        }
+
+        .layer-frontend {
+            background: #38a169;
+            color: white;
+        }
+
+        .layer-backend {
+            background: #3182ce;
+            color: white;
+        }
+
+        .layer-aws {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .step-content {
+            margin-left: 65px;
+        }
+
+        .step-description {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            font-size: 1.05em;
+        }
+
+        .code-section {
+            background: #f1f3f5;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .code-label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .code-file-path {
+            background: #2d3748;
+            color: #68d391;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .code-snippet {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            overflow-x: auto;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .code-highlight {
+            background: #2d3748;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #68d391;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .arrow-down {
+            text-align: center;
+            padding: 15px 0;
+            font-size: 2.5em;
+            color: #667eea;
+        }
+
+        .key-points {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+        }
+
+        .key-points-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .key-points ul {
+            margin-left: 20px;
+            color: #856404;
+        }
+
+        .key-points li {
+            margin-bottom: 5px;
+        }
+
+        /* 概要タブ用 */
+        .architecture {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .layer {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 3px solid #dee2e6;
+        }
+
+        .layer-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        .components {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .component {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .component:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+        }
+
+        .component-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .component-icon {
+            font-size: 2em;
+            margin-right: 15px;
+        }
+
+        .component-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .component-description {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .code-files {
+            background: #f1f3f5;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .code-file-label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .code-file {
+            background: #2d3748;
+            color: #68d391;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .arrow-container {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .arrow {
+            font-size: 3em;
+            color: #667eea;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+
+        .flow-text {
+            color: #667eea;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .frontend {
+            border-left-color: #38a169;
+        }
+
+        .backend {
+            border-left-color: #3182ce;
+        }
+
+        .infrastructure {
+            border-left-color: #d69e2e;
+        }
+
+        .aws-service {
+            border-left-color: #e53e3e;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 5px;
+        }
+
+        .legend-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .simple-flow {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 40px;
+        }
+
+        .flow-steps {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .flow-step {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .flow-step-number {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            line-height: 40px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .flow-step-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .flow-step-description {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .flow-arrow {
+            font-size: 2em;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+            .tab-button {
+                font-size: 0.9em;
+                padding: 12px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📔 日記アプリ システム構成図</h1>
+        <p class="subtitle">コードのどこがどの処理にあたるか、詳しく見てみよう！</p>
+
+        <!-- タブナビゲーション -->
+        <div class="tab-navigation">
+            <button class="tab-button active" onclick="switchTab('overview')">📊 全体概要</button>
+            <button class="tab-button" onclick="switchTab('save')">💾 データの保存</button>
+            <button class="tab-button" onclick="switchTab('generate')">🤖 日記の生成</button>
+            <button class="tab-button" onclick="switchTab('list')">📋 一覧の取得</button>
+        </div>
+
+        <!-- タブ1: 全体概要 -->
+        <div id="tab-overview" class="tab-content active">
+            <!-- 簡易フロー図 -->
+            <div class="simple-flow">
+                <div class="flow-title">💡 データの流れ（概要）</div>
+                <div class="flow-steps">
+                    <div class="flow-step">
+                        <div class="flow-step-number">1</div>
+                        <div class="flow-step-title">ユーザーがフォーム入力</div>
+                        <div class="flow-step-description">ブラウザで日記を入力</div>
+                    </div>
+
+                    <div class="flow-arrow">→</div>
+
+                    <div class="flow-step">
+                        <div class="flow-step-number">2</div>
+                        <div class="flow-step-title">Lambda関数が処理</div>
+                        <div class="flow-step-description">データを受け取って処理</div>
+                    </div>
+
+                    <div class="flow-arrow">→</div>
+
+                    <div class="flow-step">
+                        <div class="flow-step-number">3</div>
+                        <div class="flow-step-title">AWSサービスで保存/生成</div>
+                        <div class="flow-step-description">DynamoDBやBedrockを使用</div>
+                    </div>
+
+                    <div class="flow-arrow">→</div>
+
+                    <div class="flow-step">
+                        <div class="flow-step-number">4</div>
+                        <div class="flow-step-title">結果を返す</div>
+                        <div class="flow-step-description">ユーザーに結果を表示</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="architecture">
+                <!-- フロントエンド層 -->
+                <div class="layer">
+                    <div class="layer-title">🖥️ フロントエンド層（ブラウザで動く部分）</div>
+                    <div class="components">
+                        <div class="component frontend">
+                            <div class="component-header">
+                                <div class="component-icon">📝</div>
+                                <div class="component-title">日記保存フォーム</div>
+                            </div>
+                            <div class="component-description">
+                                ユーザーが日記を入力して保存する画面です。日付、タイトル、内容を入力できます。AIで内容を自動生成することもできます。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">📄 コードファイル：</div>
+                                <code class="code-file">frontend/index.html</code>
+                                <code class="code-file">frontend/index.js</code>
+                            </div>
+                        </div>
+
+                        <div class="component frontend">
+                            <div class="component-header">
+                                <div class="component-icon">📋</div>
+                                <div class="component-title">日記一覧画面</div>
+                            </div>
+                            <div class="component-description">
+                                保存された日記の一覧を表示する画面です。日付順に日記が並んで表示されます。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">📄 コードファイル：</div>
+                                <code class="code-file">frontend/diary-list.html</code>
+                                <code class="code-file">frontend/diary-list.js</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arrow-container">
+                    <div class="arrow">⬇️</div>
+                    <div class="flow-text">HTTPSリクエスト（データの送受信）</div>
+                </div>
+
+                <!-- バックエンド層 -->
+                <div class="layer">
+                    <div class="layer-title">⚙️ バックエンド層（サーバーで動く処理）</div>
+                    <div class="components">
+                        <div class="component backend">
+                            <div class="component-header">
+                                <div class="component-icon">💾</div>
+                                <div class="component-title">日記保存処理</div>
+                            </div>
+                            <div class="component-description">
+                                フォームから送られてきた日記データを受け取り、DynamoDBに保存するLambda関数です。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">📄 コードファイル：</div>
+                                <code class="code-file">lambda/save_to_dynamodb/save_to_dynamodb.py</code>
+                            </div>
+                        </div>
+
+                        <div class="component backend">
+                            <div class="component-header">
+                                <div class="component-icon">🤖</div>
+                                <div class="component-title">AI日記生成処理</div>
+                            </div>
+                            <div class="component-description">
+                                タイトルを受け取り、Amazon Bedrock（AI）を使って日記の内容を自動生成するLambda関数です。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">📄 コードファイル：</div>
+                                <code class="code-file">lambda/generate_diary_content/generate_diary_content.py</code>
+                            </div>
+                        </div>
+
+                        <div class="component backend">
+                            <div class="component-header">
+                                <div class="component-icon">📖</div>
+                                <div class="component-title">日記一覧取得処理</div>
+                            </div>
+                            <div class="component-description">
+                                DynamoDBから保存されている日記データをすべて取得し、一覧画面に返すLambda関数です。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">📄 コードファイル：</div>
+                                <code class="code-file">lambda/get_diary_list/get_diary_list.py</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arrow-container">
+                    <div class="arrow">⬇️</div>
+                    <div class="flow-text">AWSサービスとの連携</div>
+                </div>
+
+                <!-- AWSサービス層 -->
+                <div class="layer">
+                    <div class="layer-title">☁️ AWSサービス層（クラウドで提供されるサービス）</div>
+                    <div class="components">
+                        <div class="component aws-service">
+                            <div class="component-header">
+                                <div class="component-icon">🪣</div>
+                                <div class="component-title">S3（ストレージ）</div>
+                            </div>
+                            <div class="component-description">
+                                HTMLファイルやJavaScriptファイルを保存し、ウェブサイトとして公開します。フロントエンドのホスティング先です。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">💡 保存されるファイル：</div>
+                                <code class="code-file">index.html, diary-list.html, *.js</code>
+                            </div>
+                        </div>
+
+                        <div class="component aws-service">
+                            <div class="component-header">
+                                <div class="component-icon">🗄️</div>
+                                <div class="component-title">DynamoDB（データベース）</div>
+                            </div>
+                            <div class="component-description">
+                                日記データ（日付、タイトル、内容）を保存するNoSQLデータベースです。高速で拡張性が高いです。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">💡 保存されるデータ：</div>
+                                <code class="code-file">{ id, date, title, content }</code>
+                            </div>
+                        </div>
+
+                        <div class="component aws-service">
+                            <div class="component-header">
+                                <div class="component-icon">🧠</div>
+                                <div class="component-title">Bedrock（生成AI）</div>
+                            </div>
+                            <div class="component-description">
+                                Claude 3.5 Haikuなどの大規模言語モデル（LLM）を使用して、タイトルから日記の内容を生成します。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">💡 使用モデル：</div>
+                                <code class="code-file">Claude 3.5 Haiku</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arrow-container">
+                    <div class="arrow">⬇️</div>
+                    <div class="flow-text">インフラ設定</div>
+                </div>
+
+                <!-- インフラストラクチャ層 -->
+                <div class="layer">
+                    <div class="layer-title">🏗️ インフラストラクチャ層（AWSリソースの設定）</div>
+                    <div class="components">
+                        <div class="component infrastructure">
+                            <div class="component-header">
+                                <div class="component-icon">🔧</div>
+                                <div class="component-title">CDKスタック定義</div>
+                            </div>
+                            <div class="component-description">
+                                AWS CDK（Infrastructure as Code）を使って、S3、Lambda、DynamoDBなどのAWSリソースを自動的に作成・設定します。コードでインフラを管理できます。
+                            </div>
+                            <div class="code-files">
+                                <div class="code-file-label">📄 コードファイル：</div>
+                                <code class="code-file">lib/aws_project_2025_template-stack.ts</code>
+                                <div style="margin-top: 10px; color: #495057; font-size: 0.9em;">
+                                    <strong>このファイルが作成するもの：</strong><br>
+                                    • S3バケット（ウェブサイトホスティング用）<br>
+                                    • DynamoDBテーブル（データ保存用）<br>
+                                    • Lambda関数 × 3（各処理用）<br>
+                                    • IAM権限（セキュリティ設定）
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 凡例 -->
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #38a169;"></div>
+                    <div class="legend-label">フロントエンド（HTML/JS）</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3182ce;"></div>
+                    <div class="legend-label">バックエンド（Python）</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e53e3e;"></div>
+                    <div class="legend-label">AWSサービス</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #d69e2e;"></div>
+                    <div class="legend-label">インフラ設定（TypeScript）</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- タブ2: データの保存 -->
+        <div id="tab-save" class="tab-content">
+            <div class="detailed-flow">
+                <div class="flow-title">💾 データの保存フロー（詳細解説）</div>
+                <div class="flow-description">日記を保存する際のコードの流れを、ステップごとに見ていきましょう</div>
+
+                <div class="flow-steps-vertical">
+                    <!-- ステップ1 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">1</div>
+                            <div class="step-title">ユーザーがフォームを送信</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                ユーザーが日記フォームに日付、タイトル、内容を入力して「送信」ボタンをクリックすると、JavaScriptのイベントリスナーが発火します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (95-98行目)</code>
+                                <div class="code-snippet">document.getElementById('dataForm').addEventListener('submit', async function (e) {
+    // デフォルトのフォーム送信動作(ページリロード)を防止
+    e.preventDefault();</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">addEventListener('submit')</code>: フォーム送信イベントを監視</li>
+                                    <li><code class="code-highlight">e.preventDefault()</code>: ページリロードを防ぐ</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ2 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">2</div>
+                            <div class="step-title">入力値を取得してデータを作成</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                各入力フィールドから値を取得し、送信用のJSONデータを作成します。同時に、送信ボタンを無効化してローディング表示にします。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (102-119行目)</code>
+                                <div class="code-snippet">const date = document.getElementById('date').value;
+const title = document.getElementById('title').value;
+const content = document.getElementById('content').value;
+
+const data = {
+    date: date,
+    title: title,
+    content: content
+};
+
+// 送信ボタンを無効化してローディング表示
+const submitBtn = this.querySelector('button[type="submit"]');
+submitBtn.disabled = true;
+submitBtn.textContent = '送信中...';</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">getElementById()</code>: 各入力フィールドの値を取得</li>
+                                    <li>送信中は連続クリックを防ぐため、ボタンを無効化</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ3 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
+                            <div class="step-title">Lambda APIにPOSTリクエスト送信</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                <code class="code-highlight">fetch()</code>関数を使って、Lambda Function URLにHTTPSリクエストを送信します。データはJSON形式で送られます。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (125-132行目)</code>
+                                <div class="code-snippet">const response = await fetch(apiUrl, {
+    method: 'POST',  // HTTPメソッド: POST(データを送信)
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    // データをJSON文字列に変換して送信
+    body: JSON.stringify(data)
+});</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">fetch()</code>: 非同期HTTPリクエスト</li>
+                                    <li><code class="code-highlight">JSON.stringify()</code>: オブジェクトをJSON文字列に変換</li>
+                                    <li><code class="code-highlight">await</code>: レスポンスが返ってくるまで待機</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ4 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">4</div>
+                            <div class="step-title">Lambda関数がリクエストを受信</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Lambda関数の<code class="code-highlight">handler()</code>関数が呼び出され、eventパラメータにリクエストデータが渡されます。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/save_to_dynamodb/save_to_dynamodb.py (20-43行目)</code>
+                                <div class="code-snippet">def handler(event, context):
+    # eventからJSONデータを取り出す
+    body = json.loads(event.get('body', '{}'))
+
+    # リクエストボディから日付、タイトル、内容を取得
+    date = body.get('date')
+    title = body.get('title')
+    content = body.get('content')</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">event['body']</code>: HTTPリクエストのボディ（JSON文字列）</li>
+                                    <li><code class="code-highlight">json.loads()</code>: JSON文字列をPythonの辞書に変換</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ5 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">5</div>
+                            <div class="step-title">入力値のバリデーション（検証）</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                date、title、contentがすべて存在するかチェックします。1つでも欠けていればエラーレスポンスを返します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/save_to_dynamodb/save_to_dynamodb.py (55-65行目)</code>
+                                <div class="code-snippet">if not all([date, title, content]):
+    # いずれかが欠けている場合はエラーレスポンスを返す
+    return {
+        'statusCode': 400,  # 400 Bad Request
+        'headers': {
+            'Content-Type': 'application/json',
+        },
+        'body': json.dumps({
+            'error': 'date, title, and content are required'
+        })
+    }</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">all()</code>: すべての要素がTrueかチェック</li>
+                                    <li>バリデーション失敗時は400エラーを返す</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ6 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">6</div>
+                            <div class="step-title">DynamoDB用のデータを作成</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                タイムスタンプを生成し、DynamoDBに保存するアイテム（レコード）を作成します。IDは日付とタイムスタンプを組み合わせたユニークな値です。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/save_to_dynamodb/save_to_dynamodb.py (70-82行目)</code>
+                                <div class="code-snippet">timestamp = datetime.now().isoformat()
+
+item = {
+    # ユニークなID: 日付とタイムスタンプを組み合わせ
+    'id': f"{date}#{timestamp}",
+    'date': date,
+    'title': title,
+    'content': content,
+    'createdAt': timestamp  # 作成日時
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">datetime.now().isoformat()</code>: 現在時刻をISO8601形式で取得</li>
+                                    <li>IDは「日付#タイムスタンプ」の形式でユニークに</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ7 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">7</div>
+                            <div class="step-title">DynamoDBにデータを保存</div>
+                            <div class="step-layer layer-aws">AWS</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Boto3（AWS SDK for Python）を使って、DynamoDBテーブルにアイテムを保存します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/save_to_dynamodb/save_to_dynamodb.py (84-86行目)</code>
+                                <div class="code-snippet"># DynamoDBテーブルにアイテムを保存
+table.put_item(Item=item)</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">table.put_item()</code>: DynamoDBにアイテムを追加</li>
+                                    <li>テーブルオブジェクトは10-18行目で初期化済み</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ8 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">8</div>
+                            <div class="step-title">成功レスポンスを返す</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                保存が成功したら、HTTPステータスコード200とともに成功メッセージと保存したデータを返します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/save_to_dynamodb/save_to_dynamodb.py (91-101行目)</code>
+                                <div class="code-snippet">return {
+    'statusCode': 200,  # 200 OK(成功)
+    'headers': {
+        'Content-Type': 'application/json',
+    },
+    'body': json.dumps({
+        'message': 'Data saved successfully',
+        'item': item  # 保存したデータの内容
+    })
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li>HTTPステータスコード200: 成功を示す</li>
+                                    <li>保存したアイテムの内容も一緒に返す</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ9 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">9</div>
+                            <div class="step-title">レスポンスを受け取って画面を更新</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Lambda関数からのレスポンスを受け取り、成功した場合は成功メッセージを表示してフォームをリセットします。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (140-151行目)</code>
+                                <div class="code-snippet">if (response.ok) {
+    // 成功メッセージを表示
+    document.getElementById('result').innerHTML =
+        '<div class="alert alert-success">データが正常に保存されました!</div>';
+
+    // フォームをリセット(すべての入力欄をクリア)
+    document.getElementById('dataForm').reset();
+
+    // 日付フィールドを今日の日付に再設定
+    document.getElementById('date').valueAsDate = new Date();
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">response.ok</code>: HTTPステータスコードが200-299の場合true</li>
+                                    <li><code class="code-highlight">reset()</code>: フォームの入力値をすべてクリア</li>
+                                    <li>送信ボタンは167-168行目で元の状態に戻る</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- タブ3: 日記の生成 -->
+        <div id="tab-generate" class="tab-content">
+            <div class="detailed-flow">
+                <div class="flow-title">🤖 日記の生成フロー（詳細解説）</div>
+                <div class="flow-description">AIで日記を自動生成する際のコードの流れを、ステップごとに見ていきましょう</div>
+
+                <div class="flow-steps-vertical">
+                    <!-- ステップ1 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">1</div>
+                            <div class="step-title">「AIで内容を生成」ボタンをクリック</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                ユーザーが「AIで内容を生成」ボタンをクリックすると、JavaScriptのイベントリスナーが発火します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (18行目)</code>
+                                <div class="code-snippet">document.getElementById('generateContentBtn').addEventListener('click', async function () {
+    // タイトル入力欄の値を取得し、前後の空白を削除
+    const title = document.getElementById('title').value.trim();</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">addEventListener('click')</code>: クリックイベントを監視</li>
+                                    <li><code class="code-highlight">trim()</code>: 前後の空白を削除</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ2 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">2</div>
+                            <div class="step-title">タイトルのバリデーション</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                タイトルが空でないかチェックします。空の場合は警告メッセージを表示して処理を中断します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (25-30行目)</code>
+                                <div class="code-snippet">if (!title) {
+    // タイトルが空の場合、警告メッセージを表示
+    document.getElementById('result').innerHTML =
+        '<div class="alert alert-warning">タイトルを入力してください。</div>';
+    return; // 処理を中断
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li>タイトルがないとAIが何を書けば良いかわからないため必須</li>
+                                    <li><code class="code-highlight">return</code>で早期リターン（処理中断）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ3 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
+                            <div class="step-title">ボタンを無効化してローディング表示</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                AI生成には時間がかかるため、ボタンを無効化し「生成中...」と表示して、ユーザーに処理中であることを知らせます。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (35-38行目)</code>
+                                <div class="code-snippet">const btn = this;  // クリックされたボタン要素を参照
+const originalText = btn.textContent;  // ボタンの元のテキストを保存
+btn.disabled = true;  // ボタンを無効化(連続クリックを防止)
+btn.textContent = '生成中...';  // ボタンのテキストを変更</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li>連続クリックを防ぐため、ボタンを無効化</li>
+                                    <li>元のテキストを保存して後で復元できるようにする</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ4 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">4</div>
+                            <div class="step-title">Lambda APIにPOSTリクエスト送信</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                タイトルをJSON形式でLambda Function URLに送信します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (46-53行目)</code>
+                                <div class="code-snippet">const response = await fetch(generateApiUrl, {
+    method: 'POST',  // HTTPメソッド: POST(データを送信)
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    // タイトルをJSON形式で送信
+    body: JSON.stringify({ title: title })
+});</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">generateApiUrl</code>: AI生成用のLambda Function URL</li>
+                                    <li>タイトルだけを送信（内容は生成してもらう）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ5 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">5</div>
+                            <div class="step-title">Lambda関数がタイトルを受信</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Lambda関数がリクエストを受け取り、タイトルを抽出します。タイトルが空の場合はエラーを返します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/generate_diary_content/generate_diary_content.py (32-45行目)</code>
+                                <div class="code-snippet"># event["body"]からタイトルを取り出す
+body = json.loads(event.get("body", "{}"))
+title = body.get("title", "")
+
+# タイトルが空の場合はエラーレスポンスを返す
+if not title:
+    return {
+        "statusCode": 400,  # 400 Bad Request
+        "headers": {
+            "Content-Type": "application/json",
+        },
+        "body": json.dumps({"error": "タイトルが必要です"}),
+    }</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li>タイトルの有無をサーバー側でも再チェック（セキュリティ）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ6 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">6</div>
+                            <div class="step-title">AIへのプロンプト（指示文）を作成</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                AIに日記を生成させるためのプロンプト（指示文）を作成します。タイトルを埋め込んで、自然な日記を書くように依頼します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/generate_diary_content/generate_diary_content.py (50-55行目)</code>
+                                <div class="code-snippet">prompt = f"""以下の日記のタイトルに基づいて、適切な日記の内容を日本語で生成してください。自然で心のこもった内容にしてください。タイトル: {title}日記の内容:"""
+
+# BedrockのAPIに送るメッセージ形式を作成
+messages = [{"role": "user", "content": [{"text": prompt}]}]</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li>f文字列を使ってタイトルを埋め込む</li>
+                                    <li><code class="code-highlight">role: "user"</code>: ユーザーからのメッセージという意味</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ7 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">7</div>
+                            <div class="step-title">Amazon Bedrock（AI）を呼び出す</div>
+                            <div class="step-layer layer-aws">AWS</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Boto3を使ってAmazon Bedrockのconverse APIを呼び出し、Claude 3.5 Haikuモデルに日記を生成させます。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/generate_diary_content/generate_diary_content.py (60-61行目)</code>
+                                <div class="code-snippet"># converse()メソッドでAIモデルと会話
+response = bedrock_runtime.converse(modelId=modelId, messages=messages)</div>
+                                <code class="code-file-path">lambda/generate_diary_content/generate_diary_content.py (8-11行目)</code>
+                                <div class="code-snippet"># Bedrockクライアントの初期化（ファイル冒頭）
+bedrock_runtime = boto3.client("bedrock-runtime", region_name="us-east-1")
+# 使用するモデル
+modelId = "us.anthropic.claude-3-5-haiku-20241022-v1:0"</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">converse()</code>: Bedrockの会話型API</li>
+                                    <li>Claude 3.5 Haikuモデルを使用（高速で低コスト）</li>
+                                    <li>リージョンはus-east-1（米国東部）を使用</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ8 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">8</div>
+                            <div class="step-title">AI生成結果を抽出して返す</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                BedrockのレスポンスからAIが生成したテキストを抽出し、JSONレスポンスとして返します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/generate_diary_content/generate_diary_content.py (66-81行目)</code>
+                                <div class="code-snippet"># レスポンスから生成されたテキストを抽出
+generated_content = response["output"]["message"]["content"][0]["text"]
+
+# 成功レスポンスを返す
+return {
+    "statusCode": 200,  # 200 OK(成功)
+    "headers": {
+        "Content-Type": "application/json",
+    },
+    # タイトルと生成された内容をJSON形式で返す
+    "body": json.dumps(
+        {"title": title, "content": generated_content}, ensure_ascii=False
+    ),
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li>レスポンスのネストした構造から、テキスト部分だけを抽出</li>
+                                    <li><code class="code-highlight">ensure_ascii=False</code>: 日本語をそのまま出力</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ9 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">9</div>
+                            <div class="step-title">生成結果を受け取ってフォームに反映</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Lambda関数からのレスポンスを受け取り、生成された日記の内容をテキストエリアに自動入力します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/index.js (61-69行目)</code>
+                                <div class="code-snippet">if (response.ok) {
+    // 成功した場合
+
+    // 生成された日記の内容をテキストエリアに自動入力
+    document.getElementById('content').value = result.content;
+
+    // 成功メッセージを表示
+    document.getElementById('result').innerHTML =
+        '<div class="alert alert-success">内容を生成しました!</div>';
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">result.content</code>: AIが生成した日記の内容</li>
+                                    <li>テキストエリアに自動入力されるので、そのまま送信できる</li>
+                                    <li>ボタンは85-86行目で元の状態に戻る</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- タブ4: 一覧の取得 -->
+        <div id="tab-list" class="tab-content">
+            <div class="detailed-flow">
+                <div class="flow-title">📋 一覧の取得フロー（詳細解説）</div>
+                <div class="flow-description">保存された日記一覧を取得して表示する際のコードの流れを、ステップごとに見ていきましょう</div>
+
+                <div class="flow-steps-vertical">
+                    <!-- ステップ1 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">1</div>
+                            <div class="step-title">ページ読み込み時に自動実行</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                日記一覧ページ（diary-list.html）が読み込まれると、DOMContentLoadedイベントが発火し、自動的に日記一覧を取得する処理が開始されます。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/diary-list.js (211-214行目)</code>
+                                <div class="code-snippet">// ページ読み込み時の処理
+document.addEventListener('DOMContentLoaded', function() {
+    // ページが読み込まれたら自動的に日記一覧を取得
+    loadDiaryList();
+});</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">DOMContentLoaded</code>: HTMLの読み込みが完了したときに発火</li>
+                                    <li>ユーザーが何もしなくても自動的に一覧を表示</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ2 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">2</div>
+                            <div class="step-title">ローディング表示とUI初期化</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                データ取得中であることをユーザーに知らせるため、ローディング表示を表示し、エラー表示や日記一覧エリアをクリアします。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/diary-list.js (11-19行目)</code>
+                                <div class="code-snippet">async function loadDiaryList() {
+    // ローディング表示を表示
+    document.getElementById('loading').classList.remove('d-none');
+    // エラー表示を非表示
+    document.getElementById('error').classList.add('d-none');
+    // 日記一覧エリアをクリア
+    document.getElementById('diaryList').innerHTML = '';
+    // 空の状態表示を非表示
+    document.getElementById('emptyState').classList.add('d-none');</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">classList.remove('d-none')</code>: Bootstrapの非表示クラスを削除（表示）</li>
+                                    <li><code class="code-highlight">classList.add('d-none')</code>: 非表示クラスを追加（非表示）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ3 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
+                            <div class="step-title">Lambda APIにGETリクエスト送信</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                日記一覧取得用のLambda Function URLにGETリクエストを送信します。データを送る必要がないため、リクエストボディはありません。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/diary-list.js (27-29行目)</code>
+                                <div class="code-snippet">const response = await fetch(getDiaryListApiUrl, {
+    method: 'GET',  // HTTPメソッド: GET(データを取得)
+});</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">GET</code>メソッド: データ取得専用（送信データなし）</li>
+                                    <li>POSTと違ってbodyパラメータは不要</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ4 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">4</div>
+                            <div class="step-title">Lambda関数がリクエストを受信</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Lambda関数のhandler()関数が呼び出されます。GETリクエストなので、特にリクエストボディから値を取り出す必要はありません。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/get_diary_list/get_diary_list.py (18-33行目)</code>
+                                <div class="code-snippet">def handler(event, context):
+    """
+    DynamoDBテーブルをスキャンして、保存されている全ての日記データを取得する
+    """
+    # 受信したイベント内容をログに出力
+    print(f"Received event: {json.dumps(event)}")</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li>GETリクエストなのでeventから値を取り出す処理は不要</li>
+                                    <li>ログ出力でリクエスト内容を記録</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ5 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">5</div>
+                            <div class="step-title">DynamoDBテーブルをスキャン</div>
+                            <div class="step-layer layer-aws">AWS</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                DynamoDBのscan()メソッドを使って、テーブル内のすべてのデータを取得します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/get_diary_list/get_diary_list.py (39-41行目)</code>
+                                <div class="code-snippet"># scan()メソッドでテーブル内の全データを取得
+# 注意: 大量のデータがある場合はページネーション処理が必要
+response = table.scan()</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">scan()</code>: テーブル全体をスキャン</li>
+                                    <li>データ量が多い場合はquery()やページネーションを検討すべき</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ6 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">6</div>
+                            <div class="step-title">取得データを日付順にソート</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                取得したデータを作成日時（createdAt）で降順ソートします。新しい日記が先頭に来るようにします。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/get_diary_list/get_diary_list.py (46-52行目)</code>
+                                <div class="code-snippet"># responseの'Items'キーに取得したデータのリストが格納されている
+items = response.get('Items', [])
+
+# createdAtフィールドで降順ソート(新しい日記が先頭に来るように)
+# lambda関数を使って、各アイテムのcreatedAtフィールドを基準にソート
+# reverse=Trueで降順(新しいものが先)
+sorted_items = sorted(items, key=lambda x: x.get('createdAt', ''), reverse=True)</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">sorted()</code>: Pythonの組み込みソート関数</li>
+                                    <li><code class="code-highlight">key=lambda x: x.get('createdAt')</code>: createdAtでソート</li>
+                                    <li><code class="code-highlight">reverse=True</code>: 降順（新しい順）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ7 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">7</div>
+                            <div class="step-title">ソート済みデータを返す</div>
+                            <div class="step-layer layer-backend">バックエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                ソート済みの日記一覧とその件数をJSON形式で返します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">lambda/get_diary_list/get_diary_list.py (57-67行目)</code>
+                                <div class="code-snippet">return {
+    'statusCode': 200,  # 200 OK(成功)
+    'headers': {
+        'Content-Type': 'application/json',
+    },
+    # 取得した日記一覧をJSON形式で返す
+    'body': json.dumps({
+        'items': sorted_items,  # ソート済みの日記リスト
+        'count': len(sorted_items)  # 取得した日記の件数
+    })
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">items</code>: 日記データの配列</li>
+                                    <li><code class="code-highlight">count</code>: 件数も一緒に返す</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ8 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">8</div>
+                            <div class="step-title">レスポンスを受け取って処理分岐</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                Lambda関数からのレスポンスを受け取り、日記が0件か1件以上かで処理を分岐します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/diary-list.js (40-52行目)</code>
+                                <div class="code-snippet">if (response.ok) {
+    // 成功した場合
+
+    // 日記データの配列を取得
+    const diaries = result.items || [];
+
+    if (diaries.length === 0) {
+        // 日記が0件の場合、空の状態表示を表示
+        document.getElementById('emptyState').classList.remove('d-none');
+    } else {
+        // 日記が1件以上ある場合、一覧を表示
+        displayDiaryList(diaries);
+    }
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">result.items</code>: 日記の配列</li>
+                                    <li>0件の場合は「まだ日記がありません」メッセージを表示</li>
+                                    <li>1件以上の場合は<code class="code-highlight">displayDiaryList()</code>を呼び出し</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ9 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">9</div>
+                            <div class="step-title">各日記をカード形式で表示</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                日記データの配列をループして、各日記をBootstrapのカード形式で画面に表示します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/diary-list.js (72-82行目)</code>
+                                <div class="code-snippet">function displayDiaryList(diaries) {
+    const diaryListElement = document.getElementById('diaryList');
+
+    // 各日記データをカード形式で表示
+    diaries.forEach((diary, index) => {
+        // 日記カードを作成
+        const diaryCard = createDiaryCard(diary, index);
+        // 日記一覧エリアに追加
+        diaryListElement.appendChild(diaryCard);
+    });
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">forEach()</code>: 配列の各要素に対して処理を実行</li>
+                                    <li><code class="code-highlight">createDiaryCard()</code>: カード要素を生成（87-156行目）</li>
+                                    <li><code class="code-highlight">appendChild()</code>: 生成したカードをDOMに追加</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-down">⬇️</div>
+
+                    <!-- ステップ10 -->
+                    <div class="flow-step-detailed">
+                        <div class="step-header">
+                            <div class="step-number">10</div>
+                            <div class="step-title">日記カード要素を動的に生成</div>
+                            <div class="step-layer layer-frontend">フロントエンド</div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-description">
+                                JavaScriptのDOM操作で、カード要素を動的に作成します。日付、タイトル、内容、作成日時を表示します。
+                            </div>
+                            <div class="code-section">
+                                <div class="code-label">📄 該当コード</div>
+                                <code class="code-file-path">frontend/diary-list.js (87-156行目、抜粋）</code>
+                                <div class="code-snippet">function createDiaryCard(diary, index) {
+    // カード全体のdiv要素を作成
+    const cardDiv = document.createElement('div');
+    cardDiv.className = 'card mb-3';
+
+    // カードボディのdiv要素を作成
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+
+    // 日付を表示
+    const dateElement = document.createElement('small');
+    dateElement.textContent = formatDate(diary.date);
+
+    // タイトルを表示
+    const titleElement = document.createElement('h5');
+    titleElement.textContent = diary.title || '(タイトルなし)';
+
+    // 内容を表示（200文字で省略）
+    const contentElement = document.createElement('p');
+    const content = diary.content || '(内容なし)';
+    if (content.length > 200) {
+        contentElement.textContent = content.substring(0, 200) + '...';
+    }
+
+    // ... (カードを構築してreturn)
+}</div>
+                            </div>
+                            <div class="key-points">
+                                <div class="key-points-title">💡 ポイント</div>
+                                <ul>
+                                    <li><code class="code-highlight">createElement()</code>: DOM要素を動的に生成</li>
+                                    <li><code class="code-highlight">formatDate()</code>: 日付をフォーマット（161-175行目）</li>
+                                    <li>長い内容は200文字で省略して「...」をつける</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // タブ切り替え関数
+        function switchTab(tabName) {
+            // すべてのタブコンテンツを非表示
+            const allTabs = document.querySelectorAll('.tab-content');
+            allTabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // すべてのタブボタンを非アクティブ
+            const allButtons = document.querySelectorAll('.tab-button');
+            allButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // 選択されたタブコンテンツを表示
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            // 選択されたタブボタンをアクティブ
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
