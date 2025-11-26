@@ -4,6 +4,6 @@ import { AwsProject2025TemplateStack } from '../lib/aws_project_2025_template-st
 
 const app = new cdk.App();
 new AwsProject2025TemplateStack(app, 'AwsProject2025TemplateStack', {
-  stackName: 'aws-project-2025-user',
+  stackName: 'aws-project-2025-Sato',
   env: { region: 'ap-northeast-1' },
 });
