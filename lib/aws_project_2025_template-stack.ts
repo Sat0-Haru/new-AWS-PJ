@@ -291,5 +291,63 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       value: imageBucket.bucketName,
       description: 'Image Storage Bucket Name',
     });
+
+    // ========================================
+    // Lambda関数⑤: S3アップロードをトリガーにBedrockで画像分析を行う処理
+    // ========================================
+    const analyzeImageFunction = new lambdaPython.PythonFunction(this, 'AnalyzeImageWithBedrockFunction', {
+      // 実行環境: Python 3.13を使用 (Bedrock SDKに対応)
+      runtime: lambda.Runtime.PYTHON_3_13,
+      // エントリーポイントとなるPythonファイル名
+      index: 'S3ToBedrockImageAnalyzer.py', // Pythonコードのファイル名を指定
+      // Lambda関数内で呼び出される関数名
+      handler: 'handler',
+      // Lambda関数のソースコードがあるディレクトリ
+      entry: path.join(__dirname, '../lambda/S3ToBedrockImageAnalyzer'), // 実際のソースコードパスを指定
+      // タイムアウト: S3からの画像読み込みとBedrockの応答待ち時間を考慮して長めに設定
+      timeout: cdk.Duration.seconds(180), // 3分に設定
+
+      // 環境変数: Lambda関数内で使用できる変数を設定
+      environment: {
+        BEDROCK_MODEL_ID: 'anthropic.claude-sonnet-4-5-20250929-v1:0', // 使用するモデルIDを設定
+      },
+    });
+
+    // ----------------------------------------
+    // Lambda関数⑤の権限付与
+    // ----------------------------------------
+    
+    // 1. 画像保存用S3バケットへの読み取り権限を付与 (トリガーされた画像を読み込むため)
+    imageBucket.grantRead(analyzeImageFunction);
+
+    // 2. Amazon Bedrock(生成AI)を呼び出す権限を付与
+    analyzeImageFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['bedrock:InvokeModel'],
+      resources: [`arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0`], // 特定のモデルARNに限定することがよりセキュアです
+    }));
+
+    // ----------------------------------------
+    // S3トリガーの設定 (Lambda関数⑤)
+    // ----------------------------------------
+    analyzeImageFunction.addEventSource(
+      // S3のイベントソース(トリガー)を設定
+      new s3.S3EventSource(imageBucket, {
+        events: [s3.EventType.OBJECT_CREATED], // ファイルが作成された時をトリガーとする
+        // フィルタ: 特定の拡張子のファイルのみを対象とする
+        filters: [
+          { suffix: '.jpg' },
+          { suffix: '.png' },
+        ],
+      }),
+    );
+
+    // ========================================
+    // CDK出力: 画像分析Lambda関数名
+    // ========================================
+    new cdk.CfnOutput(this, 'AnalyzeImageFunctionArn', {
+      value: analyzeImageFunction.functionArn,
+      description: 'Image Analysis Lambda Function ARN',
+    });
   }
 }
