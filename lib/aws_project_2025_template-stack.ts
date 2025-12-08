@@ -20,6 +20,8 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 // ファイルパス操作用のNode.js標準ライブラリをインポート
 import * as path from 'path';
+// S3EventSourceをaws-cdk-lib/aws-lambda-event-sourcesからインポート
+import { S3EventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 
 // AWSリソースのスタック(まとまり)を定義するクラス
 export class AwsProject2025TemplateStack extends cdk.Stack {
