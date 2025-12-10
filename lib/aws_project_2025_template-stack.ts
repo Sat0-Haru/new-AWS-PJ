@@ -309,10 +309,12 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       // タイムアウト: S3からの画像読み込みとBedrockの応答待ち時間を考慮して長めに設定
       timeout: cdk.Duration.seconds(180), // 3分に設定
 
-      // 環境変数: 使用するモデルIDのみを設定
+      // 環境変数: 使用するモデルIDと、S3バケット名を設定
       environment: {
-        // Bedrockで画像解析に使用するモデルID
-        BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0',
+        // 画像分析用モデルとしてClaude 3 Haikuを設定
+        BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0', 
+        // S3バケット名をPython関数に渡す
+        GENERATED_IMAGE_BUCKET_NAME: imageBucket.bucketName, 
       },
     });
 
@@ -327,9 +329,12 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
     analyzeImageFunction.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['bedrock:InvokeModel'],
-      // 使用するClaude Sonnet 4.5のARNに限定
+      // 2つのモデルARNを許可する
       resources: [
+        // Claude 3 Haiku (分析用)
         `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
+        // Stable Diffusion XL (生成用)
+        `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/stability.stable-diffusion-xl`,
       ],
     }));
 

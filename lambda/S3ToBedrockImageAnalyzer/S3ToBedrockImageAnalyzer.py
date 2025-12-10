@@ -4,95 +4,100 @@ import urllib.parse
 import base64
 import os
 import logging
+from datetime import datetime
+import time
 
 # ロギング設定
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # 環境変数から設定を取得
-# Bedrockで画像解析に使用するモデルID（例: anthropic.claude-3-sonnet-20240229-v1:0）
-BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID')
+# Claude 3 Haiku のモデルID
+ANALYSIS_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID') 
+# CDKで設定したS3バケット名
+GENERATED_IMAGE_BUCKET_NAME = os.environ.get('GENERATED_IMAGE_BUCKET_NAME')
+# 画像生成モデルID (固定値として利用)
+GENERATION_MODEL_ID = 'stability.stable-diffusion-xl' 
 
 # AWSクライアントの初期化
 s3_client = boto3.client('s3')
-# Bedrockランタイムクライアントは、Lambdaが動作しているリージョンで自動的に初期化されます
 bedrock_runtime = boto3.client('bedrock-runtime')
 
 def handler(event, context):
     """
     S3へのファイルアップロードをトリガーとして実行されるLambdaハンドラ関数。
+    画像を分析し、そのテキスト結果を使って間取り図の画像を生成します。
     """
-    if not BEDROCK_MODEL_ID:
-        logger.error("BEDROCK_MODEL_ID is not set in environment variables.")
-        raise ValueError("Configuration Error: BEDROCK_MODEL_ID missing.")
+    if not ANALYSIS_MODEL_ID or not GENERATED_IMAGE_BUCKET_NAME:
+        logger.error("Configuration Error: Required environment variables are missing.")
+        raise ValueError("Configuration Error: BEDROCK_MODEL_ID or GENERATED_IMAGE_BUCKET_NAME missing.")
         
     logger.info(f"Received event: {event}")
 
     try:
-        # S3イベントからバケット名とオブジェクトキーを取得
-        # S3イベントには複数のレコードが含まれる場合があるため、最初のレコードを使用
+        # 1. S3イベントからバケット名とオブジェクトキーを取得し、画像データを取得
         record = event['Records'][0]
         bucket = record['s3']['bucket']['name']
-        # キーにスペースなどURLエンコードされた文字がある場合に対応
         key = urllib.parse.unquote_plus(record['s3']['object']['key'], encoding='utf-8')
         
-        logger.info(f"--- Processing Image: s3://{bucket}/{key} ---")
+        logger.info(f"--- Processing Input Image: s3://{bucket}/{key} ---")
 
-        # 1. S3から画像ファイルを読み込み、Base64でエンコード
+        # 画像ファイルの読み込み
         image_bytes, mime_type = get_image_from_s3(bucket, key)
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
-        logger.info(f"Image read and encoded. MIME Type: {mime_type}")
+        logger.info(f"Image read. MIME Type: {mime_type}. Starting Analysis (Step 1/2)...")
 
-        # 2. Amazon Bedrockを呼び出して画像分析を実行
-        layout_content = invoke_bedrock_multimodal(image_base64, mime_type)
+        # 2. Step 1: Claudeで画像分析を実行し、テキストプロンプトを生成
+        analysis_prompt_text = (
+            "You are an expert architect. Analyze this photo of a room. "
+            "Describe the layout, dimensions, and contents in extreme detail suitable for generating a floor plan. "
+            "Output *only* the single, continuous text prompt for an image generator to create a simple, minimalist 2D floor plan based on this room's geometry and contents."
+        )
         
-        # 3. 結果のログ出力（今回はDynamoDB保存をスキップし、ログ出力で確認）
-        logger.info("--- Bedrock Analysis Complete ---")
-        logger.info(f"Generated Layout Content (Partial): {layout_content[:500]}...") # 長すぎる場合を考慮
+        generated_prompt = invoke_bedrock_multimodal_analysis(image_base64, mime_type, analysis_prompt_text)
         
+        logger.info(f"Analysis complete. Generated Prompt (Step 2/2): {generated_prompt[:200]}...")
+
+        # 3. Step 2: Stable Diffusion XLで間取り図の画像を生成
+        image_base64 = invoke_bedrock_sdxl_generation(generated_prompt)
+        
+        # 4. 生成された画像をS3に保存
+        image_binary = base64.b64decode(image_base64)
+        
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        output_key = f"generated_floorplan_from_{key.replace('/', '_')}_{timestamp}.png"
+        
+        s3_client.put_object(
+            Bucket=GENERATED_IMAGE_BUCKET_NAME,
+            Key=output_key,
+            Body=image_binary,
+            ContentType='image/png'
+        )
+        
+        logger.info(f"--- Image Generation Complete ---")
+        logger.info(f"Generated floor plan saved to s3://{GENERATED_IMAGE_BUCKET_NAME}/{output_key}")
+            
         return {
             'statusCode': 200,
-            'body': json.dumps({'message': 'Bedrock image analysis successful', 'image_key': key})
+            'body': json.dumps({'message': 'Floor plan generation successful', 'output_key': output_key})
         }
 
     except Exception as e:
         logger.error(f"Error processing S3 event or invoking Bedrock: {e}")
-        # Lambda関数は失敗し、CloudWatch Logsにエラーが記録されます
         raise e
 
-# --- ヘルパー関数 ---
+# --- ヘルパー関数: S3画像読み込み (再掲) ---
 
 def get_image_from_s3(bucket: str, key: str):
     """S3から画像ファイルを読み込み、MIMEタイプを推定する"""
-    try:
-        image_object = s3_client.get_object(Bucket=bucket, Key=key)
-        image_bytes = image_object['Body'].read()
+    # ... (変更なし)
 
-        # キーのサフィックスからMIMEタイプを推定
-        if key.lower().endswith(('.png')):
-            mime_type = 'image/png'
-        elif key.lower().endswith(('.jpeg', '.jpg')):
-            mime_type = 'image/jpeg'
-        else:
-            # サポートされていない形式の場合はエラーを出すか、デフォルトを設定
-            raise ValueError(f"Unsupported file type for key: {key}")
-            
-        return image_bytes, mime_type
-    except Exception as e:
-        logger.error(f"Failed to read image from S3: {e}")
-        raise e
+# --- ヘルパー関数: Claudeによる分析 (修正) ---
 
-def invoke_bedrock_multimodal(image_base64: str, mime_type: str) -> str:
-    """Bedrockのマルチモーダルモデルを呼び出す"""
+def invoke_bedrock_multimodal_analysis(image_base64: str, mime_type: str, prompt_text: str) -> str:
+    """Bedrockのマルチモーダルモデル (Haiku) を呼び出して分析を実行する"""
     
-    # 画像分析と間取り図生成のためのプロンプト
-    prompt_text = (
-        "この部屋の写真を詳細に分析し、ドア、窓の位置と数を検出し、部屋の広さを合理的に推測してください。"
-        "そして、これらの情報から推定される間取り図を**Markdown形式のテキスト**または**シンプルなSVG形式**で出力してください。"
-        "回答は、解析結果を格納したJSONオブジェクトとして返してください。JSONのキーは 'layout_plan' とし、値に間取り図の情報を格納してください。"
-    )
-
     # Bedrock API (InvokeModel) のペイロードを作成 (Anthropic Claude形式)
     body = {
         "messages": [
@@ -114,28 +119,73 @@ def invoke_bedrock_multimodal(image_base64: str, mime_type: str) -> str:
                 ]
             }
         ],
-        "max_tokens": 4096,
+        "max_tokens": 2048, # プロンプト生成に十分なトークン数
         "anthropic_version": "bedrock-2023-05-31"
     }
 
     try:
         response = bedrock_runtime.invoke_model(
-            modelId=BEDROCK_MODEL_ID,
+            modelId=ANALYSIS_MODEL_ID,
             body=json.dumps(body),
             contentType='application/json',
             accept='application/json'
         )
         
-        # Bedrockのレスポンスを処理
         response_body = json.loads(response['body'].read().decode('utf-8'))
         
-        # Claude 3/4.5のレスポンスからテキストコンテンツを抽出
         if response_body.get('content') and response_body['content'][0].get('text'):
             return response_body['content'][0]['text']
         else:
-            logger.warning(f"Bedrock response structure unexpected: {response_body}")
-            return "Analysis failed: Unexpected model response structure."
+            logger.warning(f"Claude analysis response structure unexpected: {response_body}")
+            return "minimalist 2D floor plan, white background, black lines, architectural drawing"
 
     except Exception as e:
-        logger.error(f"Bedrock API invocation failed: {e}")
+        logger.error(f"Bedrock Claude API invocation failed: {e}")
+        raise e
+
+# --- ヘルパー関数: SDXLによる画像生成 (修正) ---
+
+def invoke_bedrock_sdxl_generation(prompt: str) -> str:
+    """Stable Diffusion XL モデルを呼び出して画像を生成する"""
+    
+    # プロンプトに間取り図のスタイルを追加して強調
+    full_prompt = f"minimalist 2D architectural floor plan, black lines on white, scale accurate, detailed, {prompt}"
+    
+    # SDXL API (InvokeModel) のペイロード
+    body = {
+        "text_prompts": [
+            {
+                "text": full_prompt,
+                "weight": 1.0
+            },
+            {
+                "text": "photorealistic, 3d render, blurry, noisy, text, watermark, bad composition",
+                "weight": -0.8
+            }
+        ],
+        "cfg_scale": 8.0,
+        "seed": int(time.time()),
+        "steps": 60,
+        "width": 1024,
+        "height": 768
+    }
+
+    try:
+        response = bedrock_runtime.invoke_model(
+            modelId=GENERATION_MODEL_ID,
+            body=json.dumps(body),
+            contentType='application/json',
+            accept='application/json'
+        )
+        
+        response_body = json.loads(response['body'].read().decode('utf-8'))
+        
+        if response_body.get('artifacts') and response_body['artifacts'][0].get('base64'):
+            return response_body['artifacts'][0]['base64']
+        else:
+            logger.warning(f"SDXL generation response structure unexpected: {response_body}")
+            raise RuntimeError("Image generation failed: No image data returned.")
+
+    except Exception as e:
+        logger.error(f"Bedrock SDXL API invocation failed: {e}")
         raise e
