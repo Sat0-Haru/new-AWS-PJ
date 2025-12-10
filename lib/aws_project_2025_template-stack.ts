@@ -294,6 +294,22 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       description: 'Image Storage Bucket Name',
     });
 
+    // ========================================
+    // S3バケット: 生成された間取り図画像を保存
+    // ========================================
+    const generatedImageBucket = new s3.Bucket(this, 'GeneratedImageBucket', {
+      // スタック削除時にバケットも削除する(本番環境では RETAIN を推奨)
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      // バケット削除時に中のオブジェクトも自動削除
+      autoDeleteObjects: true,
+    });
+
+    // 生成画像保存用S3バケット名をコンソールに出力(デプロイ後に確認できる)
+    new cdk.CfnOutput(this, 'GeneratedImageBucketName', {
+      value: generatedImageBucket.bucketName,
+      description: 'Generated Floor Plan Image Bucket Name',
+    });
+
 // ========================================
     // Lambda関数⑤: S3アップロードをトリガーにBedrockで画像分析を行う処理
     // ========================================
@@ -313,8 +329,8 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       environment: {
         // 画像分析用モデルとしてClaude 3 Haikuを設定
         BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0', 
-        // S3バケット名をPython関数に渡す
-        GENERATED_IMAGE_BUCKET_NAME: imageBucket.bucketName, 
+        // 生成画像を保存するS3バケット名をPython関数に渡す
+        GENERATED_IMAGE_BUCKET_NAME: generatedImageBucket.bucketName, 
       },
     });
 
@@ -325,7 +341,10 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
     // 1. 画像保存用S3バケットへの読み取り権限を付与 (トリガーされた画像を読み込むため)
     imageBucket.grantRead(analyzeImageFunction);
 
-    // 2. Amazon Bedrock(生成AI)を呼び出す権限を付与 (セキュリティ強化版)
+    // 2. 生成画像保存用S3バケットへの書き込み権限を付与 (生成された画像を保存するため)
+    generatedImageBucket.grantWrite(analyzeImageFunction);
+
+    // 3. Amazon Bedrock(生成AI)を呼び出す権限を付与 (セキュリティ強化版)
     analyzeImageFunction.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['bedrock:InvokeModel'],

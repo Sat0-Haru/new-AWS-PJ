@@ -6,7 +6,9 @@ import os
 import logging
 from datetime import datetime
 import time
+import io
 from botocore.exceptions import ClientError
+from botocore.config import Config
 
 # ロギング設定
 logger = logging.getLogger()
@@ -22,7 +24,12 @@ GENERATION_MODEL_ID = 'amazon.nova-canvas-v1:0'
 
 # AWSクライアントの初期化
 s3_client = boto3.client('s3')
-bedrock_runtime = boto3.client('bedrock-runtime')
+# Bedrock runtime client with extended timeout for image generation
+bedrock_runtime = boto3.client(
+    service_name='bedrock-runtime',
+    region_name='us-east-1',
+    config=Config(read_timeout=300)
+)
 
 def handler(event, context):
     """
@@ -62,6 +69,8 @@ def handler(event, context):
 
         # 3. Step 2: Stable Diffusion XLで間取り図の画像を生成
         image_base64 = invoke_bedrock_sdxl_generation(generated_prompt)
+
+        logger.info(f"Image generation complete. Saving to S3...")
         
         # 4. 生成された画像をS3に保存
         image_binary = base64.b64decode(image_base64)
@@ -178,31 +187,27 @@ def invoke_bedrock_multimodal_analysis(image_base64: str, mime_type: str, prompt
         logger.error(f"Bedrock Claude API invocation failed: {e}")
         raise e
 
-# --- ヘルパー関数: SDXLによる画像生成 (修正) ---
+# --- ヘルパー関数: Nova Canvas による画像生成 ---
 
 def invoke_bedrock_sdxl_generation(prompt: str) -> str:
-    """Stable Diffusion XL モデルを呼び出して画像を生成する"""
+    """Nova Canvas モデルを呼び出して画像を生成する"""
     
     # プロンプトに間取り図のスタイルを追加して強調
     full_prompt = f"minimalist 2D architectural floor plan, black lines on white, scale accurate, detailed, {prompt}"
     
-    # SDXL API (InvokeModel) のペイロード
+    # Nova Canvas API (InvokeModel) のペイロード
     body = {
-        "text_prompts": [
-            {
-                "text": full_prompt,
-                "weight": 1.0
-            },
-            {
-                "text": "photorealistic, 3d render, blurry, noisy, text, watermark, bad composition",
-                "weight": -0.8
-            }
-        ],
-        "cfg_scale": 8.0,
-        "seed": int(time.time()),
-        "steps": 60,
-        "width": 1024,
-        "height": 768
+        "taskType": "TEXT_IMAGE",
+        "textToImageParams": {
+            "text": full_prompt
+        },
+        "imageGenerationConfig": {
+            "numberOfImages": 1,
+            "height": 720,
+            "width": 1280,
+            "cfgScale": 7.0,
+            "seed": int(time.time())
+        }
     }
 
     try:
@@ -215,12 +220,12 @@ def invoke_bedrock_sdxl_generation(prompt: str) -> str:
         
         response_body = json.loads(response['body'].read().decode('utf-8'))
         
-        if response_body.get('artifacts') and response_body['artifacts'][0].get('base64'):
-            return response_body['artifacts'][0]['base64']
+        if response_body.get('images') and len(response_body['images']) > 0:
+            return response_body['images'][0]
         else:
-            logger.warning(f"SDXL generation response structure unexpected: {response_body}")
+            logger.warning(f"Nova Canvas generation response structure unexpected: {response_body}")
             raise RuntimeError("Image generation failed: No image data returned.")
 
     except Exception as e:
-        logger.error(f"Bedrock SDXL API invocation failed: {e}")
+        logger.error(f"Bedrock Nova Canvas API invocation failed: {e}")
         raise e
