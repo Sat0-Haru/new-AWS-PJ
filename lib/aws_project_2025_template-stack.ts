@@ -112,6 +112,14 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
+    // 新しいHTML間取り図出力用S3バケット
+    const htmlOutputBucket = new s3.Bucket(this, 'HtmlOutputBucket', {
+      versioned: false, // バージョニングは不要と仮定
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // 開発用: スタック削除時にバケットも削除
+      autoDeleteObjects: true, // 開発用: スタック削除時に中身も削除
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, // パブリックアクセスをブロック
+    });
+
     // ========================================
     // DynamoDB: データを保存するNoSQLデータベース
     // ========================================
@@ -310,27 +318,20 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       description: 'Generated Floor Plan Image Bucket Name',
     });
 
-// ========================================
-    // Lambda関数⑤: S3アップロードをトリガーにBedrockで画像分析を行う処理
+    // ========================================
+    // Lambda関数⑤: S3トリガーによる画像分析・HTML間取り図生成処理
     // ========================================
     const analyzeImageFunction = new lambdaPython.PythonFunction(this, 'AnalyzeImageWithBedrockFunction', {
-      // 実行環境: Python 3.13を使用 (Bedrock SDKに対応)
       runtime: lambda.Runtime.PYTHON_3_13,
-      // エントリーポイントとなるPythonファイル名
       index: 'S3ToBedrockImageAnalyzer.py',
-      // Lambda関数内で呼び出される関数名
       handler: 'handler',
-      // Lambda関数のソースコードがあるディレクトリ
       entry: path.join(__dirname, '../lambda/S3ToBedrockImageAnalyzer'),
-      // タイムアウト: S3からの画像読み込みとBedrockの応答待ち時間を考慮して長めに設定
-      timeout: cdk.Duration.seconds(180), // 3分に設定
-
-      // 環境変数: 使用するモデルIDと、S3バケット名を設定
+      timeout: cdk.Duration.seconds(120), // 120秒 (2分)で十分
       environment: {
         // 画像分析用モデルを設定
         BEDROCK_MODEL_ID: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0', 
         // 生成画像を保存するS3バケット名をPython関数に渡す
-        GENERATED_IMAGE_BUCKET_NAME: generatedImageBucket.bucketName, 
+        GENERATED_IMAGE_BUCKET_NAME: htmlOutputBucket.bucketName, 
       },
     });
 
@@ -341,10 +342,10 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
     // 1. 画像保存用S3バケットへの読み取り権限を付与 (トリガーされた画像を読み込むため)
     imageBucket.grantRead(analyzeImageFunction);
 
-    // 2. 生成画像保存用S3バケットへの書き込み権限を付与 (生成された画像を保存するため)
-    generatedImageBucket.grantWrite(analyzeImageFunction);
+    // 2. 生成HTML保存用S3バケットへの書き込み権限を付与 (生成されたHTMLを保存するため)
+    htmlOutputBucket.grantWrite(analyzeImageFunction);
 
-    // 3. Amazon Bedrock(生成AI)を呼び出す権限を付与 (セキュリティ強化版)
+    // 3. Amazon Bedrock(生成AI)を呼び出す権限を付与
     analyzeImageFunction.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['bedrock:InvokeModel'],

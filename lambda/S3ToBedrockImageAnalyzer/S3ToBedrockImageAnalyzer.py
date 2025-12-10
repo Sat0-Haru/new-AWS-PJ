@@ -6,7 +6,6 @@ import os
 import logging
 from datetime import datetime
 import time
-import io
 from botocore.exceptions import ClientError
 from botocore.config import Config
 
@@ -15,12 +14,10 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # 環境変数から設定を取得
-# Claude 3 Haiku のモデルID
+# Claude Sonnet 4.5 のモデルID
 ANALYSIS_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID') 
 # CDKで設定したS3バケット名
 GENERATED_IMAGE_BUCKET_NAME = os.environ.get('GENERATED_IMAGE_BUCKET_NAME')
-# 画像生成モデルID (固定値として利用)
-GENERATION_MODEL_ID = 'amazon.nova-canvas-v1:0'
 
 # AWSクライアントの初期化
 s3_client = boto3.client('s3')
@@ -31,10 +28,97 @@ bedrock_runtime = boto3.client(
     config=Config(read_timeout=300)
 )
 
+# --- 間取り図のCSS定義 ---
+# ClaudeはこのCSSを元に、<body>内の構造をゼロから生成します。
+CSS_CONTENT = """
+<style>
+  /* 間取り図全体のコンテナ */
+  .madori-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+    border: 4px solid #333;
+    background-color: #fff;
+    font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    
+    /* グリッドレイアウトの設定 (この値を分析結果に合わせて変更すること) */
+    display: grid;
+    gap: 2px;
+    background-color: #333;
+  }
+
+  /* 部屋ごとの共通スタイル */
+  .room {
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-content: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px;
+    position: relative;
+    box-sizing: border-box; 
+  }
+
+  /* 部屋ラベルの文字サイズ */
+  .label {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 5px;
+  }
+  
+  .tatami {
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* --- 個別の部屋エリア指定 (a.htmlの内容を基に設定) --- */
+  /* Claudeはgrid-areaをこれらから選択し、grid-template-areasを動的に定義します */
+  .area-room1 { grid-area: room1; background-color: #f9f9f9; }
+  .area-room2 { grid-area: room2; background-color: #f9f9f9; }
+  .area-room3 { grid-area: room3; background-color: #e8f5e9; }
+  .area-ldk { grid-area: ldk; background-color: #fff8e1; border-left: 1px dashed #ccc; }
+  .area-bath { grid-area: bath; background-color: #e3f2fd; }
+  .area-entrance { grid-area: entrance; background-color: #ddd; }
+  .area-balcony { 
+      grid-area: balcony; 
+      background-color: #eee;
+      height: 60px; 
+      border-top: 2px double #333; 
+  }
+
+  /* ドアの表現 */
+  .door-mark::after {
+    content: "";
+    display: block;
+    width: 30px;
+    height: 4px;
+    background-color: #8d6e63;
+    margin: 5px auto;
+    border-radius: 2px;
+  }
+</style>
+"""
+
+# --- Claude 3 Haiku への完全生成指示プロンプト ---
+ANALYSIS_PROMPT_INSTRUCTION = f"""
+あなたは専門の建築家であり、HTML/CSSの専門家です。
+提供された部屋の画像を分析し、そのレイアウト、部屋数、推定される寸法（帖数を含む）に基づいて、**間取り図の構造をゼロから記述した完全なHTMLコードを生成してください。**
+
+【厳守事項】
+1.  出力は、**<!DOCTYPE html>から</html>まで** の完全なHTMLコード**のみ**としてください。余分な説明やMarkdown（```html）は一切禁止です。
+2.  生成するHTMLの<head>要素内に、以下の【必須CSS】をそのままコピー＆ペーストして組み込んでください。
+3.  部屋の配置、大きさの比率、部屋の名称（LDK、洋室、Bath/WCなど）、および推定される帖数（〇.〇帖）を分析結果に基づいて正確に反映させてください。
+4.  CSS Gridの 'grid-template-columns', 'grid-template-rows', 'grid-template-areas' の値を、**分析した間取りに合わせて動的に**調整してください。
+
+【必須CSS】
+{CSS_CONTENT}
+"""
+
 def handler(event, context):
     """
     S3へのファイルアップロードをトリガーとして実行されるLambdaハンドラ関数。
-    画像を分析し、そのテキスト結果を使って間取り図の画像を生成します。
+    画像を分析し、そのテキスト結果（HTML）をS3に保存します。
     """
     if not ANALYSIS_MODEL_ID or not GENERATED_IMAGE_BUCKET_NAME:
         logger.error("Configuration Error: Required environment variables are missing.")
@@ -54,78 +138,63 @@ def handler(event, context):
         image_bytes, mime_type = get_image_from_s3(bucket, key)
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
-        logger.info(f"Image read. MIME Type: {mime_type}. Starting Analysis (Step 1/2)...")
+        logger.info(f"Image read. MIME Type: {mime_type}. Starting Analysis (HTML Generation)...")
 
-        # 2. Step 1: Claudeで画像分析を実行し、テキストプロンプトを生成
-        analysis_prompt_text = (
-            "You are an expert architect and prompt engineer. Analyze the image and describe the layout, dimensions, and contents "
-            "in extreme detail suitable for generating a clear architectural floor plan. "
-            "**STRICT OUTPUT RULE:** Output *only* the single, continuous text prompt for an image generator. "
-            "The prompt must begin with the phrase 'A clear, minimalist 2D architectural blueprint floor plan, top-down view, black and white schematic, ' followed by the room description. "
-            "Exclude any photographic, 3D, or perspective terms."
-        )
+        # 2. Claudeで画像分析を実行し、HTML間取り図コードを生成
         
-        generated_prompt = invoke_bedrock_multimodal_analysis(image_base64, mime_type, analysis_prompt_text)
+        # Claudeに画像を分析させ、その結果をHTMLとして生成させる
+        html_content = invoke_bedrock_multimodal_analysis(image_base64, mime_type, ANALYSIS_PROMPT_INSTRUCTION)
         
-        logger.info(f"Analysis complete. Generated Prompt (Step 2/2): {generated_prompt[:200]}...")
-
-        # 3. Step 2: Stable Diffusion XLで間取り図の画像を生成
-        image_base64 = invoke_bedrock_sdxl_generation(generated_prompt)
-
-        logger.info(f"Image generation complete. Saving to S3...")
+        logger.info(f"HTML generation complete. Saving to S3...")
         
-        # 4. 生成された画像をS3に保存
-        image_binary = base64.b64decode(image_base64)
+        # 3. 生成されたHTMLコードをS3に保存
         
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        output_key = f"generated_floorplan_from_{key.replace('/', '_')}_{timestamp}.png"
+        # 拡張子を .html に変更
+        output_key = f"generated_floorplan_from_{key.replace('/', '_')}_{timestamp}.html" 
+        
+        # strをbytesに変換してS3に保存
+        html_bytes = html_content.encode('utf-8') 
         
         s3_client.put_object(
             Bucket=GENERATED_IMAGE_BUCKET_NAME,
             Key=output_key,
-            Body=image_binary,
-            ContentType='image/png'
+            Body=html_bytes, # バイトデータを格納
+            ContentType='text/html' # コンテンツタイプを text/html に変更
         )
         
-        logger.info(f"--- Image Generation Complete ---")
-        logger.info(f"Generated floor plan saved to s3://{GENERATED_IMAGE_BUCKET_NAME}/{output_key}")
+        logger.info(f"--- HTML Floor Plan Generation Complete ---")
+        logger.info(f"Generated HTML floor plan saved to s3://{GENERATED_IMAGE_BUCKET_NAME}/{output_key}")
             
         return {
             'statusCode': 200,
-            'body': json.dumps({'message': 'Floor plan generation successful', 'output_key': output_key})
+            'body': json.dumps({'message': 'HTML Floor plan generation successful', 'output_key': output_key})
         }
 
     except Exception as e:
         logger.error(f"Error processing S3 event or invoking Bedrock: {e}")
         raise e
 
-# --- ヘルパー関数: S3画像読み込み (再掲) ---
+# --- ヘルパー関数: S3画像読み込み (変更なし) ---
 
 def get_image_from_s3(bucket: str, key: str):
     """S3から画像ファイルを読み込み、MIMEタイプを推定する"""
     
-    # MIMEタイプを判別するためのファイル拡張子チェック (S3クライアント呼び出し前に実行)
     if key.lower().endswith(('.jpg', '.jpeg')):
         expected_mime_type = 'image/jpeg'
     elif key.lower().endswith('.png'):
         expected_mime_type = 'image/png'
     else:
         logger.error(f"Unsupported file type: {key}. Only .jpg and .png are supported.")
-        # サポートされていないファイルの場合は、ここでエラーを発生させる
         raise ValueError(f"Unsupported file type for analysis: {key}")
 
     try:
-        # S3からオブジェクトを取得
         response = s3_client.get_object(Bucket=bucket, Key=key)
         image_bytes = response['Body'].read()
-        
-        # S3から取得したContentTypeをそのまま使用（または推定値を使用）
         mime_type = response.get('ContentType', expected_mime_type)
-        
         return image_bytes, mime_type
 
     except ClientError as e:
-        # S3のクライアントエラー（ファイルアクセス権限やファイルなし）を補足
         error_code = e.response['Error']['Code']
         if error_code == 'NoSuchKey':
             logger.error(f"S3 Object Not Found: s3://{bucket}/{key}")
@@ -133,16 +202,15 @@ def get_image_from_s3(bucket: str, key: str):
             logger.error(f"S3 Access Denied: Check Lambda IAM role for s3:GetObject on {bucket}")
         else:
             logger.error(f"Unknown S3 ClientError: {e}")
-        # S3の読み込みに失敗した場合、呼び出し元にエラーを再送出する
         raise 
     except Exception as e:
         logger.error(f"Unexpected error in get_image_from_s3: {e}")
         raise
 
-# --- ヘルパー関数: Claudeによる分析 (修正) ---
+# --- ヘルパー関数: Claudeによる分析 (HTML出力対応) ---
 
 def invoke_bedrock_multimodal_analysis(image_base64: str, mime_type: str, prompt_text: str) -> str:
-    """Bedrockのマルチモーダルモデル (Haiku) を呼び出して分析を実行する"""
+    """Bedrockのマルチモーダルモデル (Haiku) を呼び出して分析を実行し、HTMLコードを返す"""
     
     # Bedrock API (InvokeModel) のペイロードを作成 (Anthropic Claude形式)
     body = {
@@ -165,7 +233,7 @@ def invoke_bedrock_multimodal_analysis(image_base64: str, mime_type: str, prompt
                 ]
             }
         ],
-        "max_tokens": 2048, # プロンプト生成に十分なトークン数
+        "max_tokens": 4096, # HTMLコード生成のため、最大トークン数を増やす
         "anthropic_version": "bedrock-2023-05-31"
     }
 
@@ -183,57 +251,8 @@ def invoke_bedrock_multimodal_analysis(image_base64: str, mime_type: str, prompt
             return response_body['content'][0]['text']
         else:
             logger.warning(f"Claude analysis response structure unexpected: {response_body}")
-            return "minimalist 2D floor plan, white background, black lines, architectural drawing"
+            return "<html><body><h1>Error: Could not generate floor plan HTML.</h1></body></html>"
 
     except Exception as e:
         logger.error(f"Bedrock Claude API invocation failed: {e}")
-        raise e
-
-# --- ヘルパー関数: Nova Canvas による画像生成 ---
-
-def invoke_bedrock_sdxl_generation(prompt: str) -> str:
-    """Nova Canvas モデルを呼び出して画像を生成する"""
-    
-    # プロンプトを1024文字以内に制限（Nova Canvasの制限）
-    # プロンプトが長すぎる場合は短縮
-    max_length = 1024
-    if len(prompt) > max_length:
-        prompt = prompt[:max_length].rsplit(' ', 1)[0]  # 最後の単語を削除して1024文字以内に
-        logger.warning(f"Prompt truncated to {len(prompt)} characters to fit Nova Canvas limit")
-    
-    full_prompt = prompt
-    
-    # Nova Canvas API (InvokeModel) のペイロード
-    body = {
-        "taskType": "TEXT_IMAGE",
-        "textToImageParams": {
-            "text": full_prompt
-        },
-        "imageGenerationConfig": {
-            "numberOfImages": 1,
-            "height": 720,
-            "width": 1280,
-            "cfgScale": 7.0,
-            "seed": int(time.time())
-        }
-    }
-
-    try:
-        response = bedrock_runtime.invoke_model(
-            modelId=GENERATION_MODEL_ID,
-            body=json.dumps(body),
-            contentType='application/json',
-            accept='application/json'
-        )
-        
-        response_body = json.loads(response['body'].read().decode('utf-8'))
-        
-        if response_body.get('images') and len(response_body['images']) > 0:
-            return response_body['images'][0]
-        else:
-            logger.warning(f"Nova Canvas generation response structure unexpected: {response_body}")
-            raise RuntimeError("Image generation failed: No image data returned.")
-
-    except Exception as e:
-        logger.error(f"Bedrock Nova Canvas API invocation failed: {e}")
         raise e
