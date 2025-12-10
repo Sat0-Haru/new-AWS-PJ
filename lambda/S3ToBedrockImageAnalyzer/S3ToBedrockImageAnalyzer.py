@@ -58,9 +58,11 @@ def handler(event, context):
 
         # 2. Step 1: Claudeで画像分析を実行し、テキストプロンプトを生成
         analysis_prompt_text = (
-            "You are an expert architect. Analyze this photo of a room. "
-            "Describe the layout, dimensions, and contents in extreme detail suitable for generating a floor plan. "
-            "Output *only* the single, continuous text prompt for an image generator to create a simple, minimalist 2D floor plan based on this room's geometry and contents."
+            "You are an expert architect and prompt engineer. Analyze the image and describe the layout, dimensions, and contents "
+            "in extreme detail suitable for generating a clear architectural floor plan. "
+            "**STRICT OUTPUT RULE:** Output *only* the single, continuous text prompt for an image generator. "
+            "The prompt must begin with the phrase 'A clear, minimalist 2D architectural blueprint floor plan, top-down view, black and white schematic, ' followed by the room description. "
+            "Exclude any photographic, 3D, or perspective terms."
         )
         
         generated_prompt = invoke_bedrock_multimodal_analysis(image_base64, mime_type, analysis_prompt_text)
