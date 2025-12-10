@@ -194,8 +194,14 @@ def invoke_bedrock_multimodal_analysis(image_base64: str, mime_type: str, prompt
 def invoke_bedrock_sdxl_generation(prompt: str) -> str:
     """Nova Canvas モデルを呼び出して画像を生成する"""
     
-    # プロンプトに間取り図のスタイルを追加して強調
-    full_prompt = f"minimalist 2D architectural floor plan, black lines on white, scale accurate, detailed, {prompt}"
+    # プロンプトを1024文字以内に制限（Nova Canvasの制限）
+    # プロンプトが長すぎる場合は短縮
+    max_length = 1024
+    if len(prompt) > max_length:
+        prompt = prompt[:max_length].rsplit(' ', 1)[0]  # 最後の単語を削除して1024文字以内に
+        logger.warning(f"Prompt truncated to {len(prompt)} characters to fit Nova Canvas limit")
+    
+    full_prompt = prompt
     
     # Nova Canvas API (InvokeModel) のペイロード
     body = {

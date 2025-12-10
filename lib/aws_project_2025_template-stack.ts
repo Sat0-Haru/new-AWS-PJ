@@ -327,8 +327,8 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
 
       // 環境変数: 使用するモデルIDと、S3バケット名を設定
       environment: {
-        // 画像分析用モデルとしてClaude 3 Haikuを設定
-        BEDROCK_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0', 
+        // 画像分析用モデルを設定
+        BEDROCK_MODEL_ID: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0', 
         // 生成画像を保存するS3バケット名をPython関数に渡す
         GENERATED_IMAGE_BUCKET_NAME: generatedImageBucket.bucketName, 
       },
