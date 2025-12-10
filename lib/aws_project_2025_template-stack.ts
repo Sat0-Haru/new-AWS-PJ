@@ -334,7 +334,7 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
         // Claude 3 Haiku (分析用)
         `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
         // Stable Diffusion XL (生成用)
-        `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/stability.stable-diffusion-xl-v1`,
+        `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/stability.stable-diffusion-xl-1_0`,
       ],
     }));
 
