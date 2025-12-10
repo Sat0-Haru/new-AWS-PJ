@@ -10,7 +10,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # 環境変数から設定を取得
-# Bedrockで画像解析に使用するモデルID（例: anthropic.claude-sonnet-4-5-20250929-v1:0）
+# Bedrockで画像解析に使用するモデルID（例: anthropic.claude-3-sonnet-20240229-v1:0）
 BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID')
 
 # AWSクライアントの初期化

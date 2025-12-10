@@ -312,7 +312,7 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       // 環境変数: 使用するモデルIDのみを設定
       environment: {
         // Bedrockで画像解析に使用するモデルID
-        BEDROCK_MODEL_ID: 'anthropic.claude-sonnet-4-5-20250929-v1:0',
+        BEDROCK_MODEL_ID: 'anthropic.claude-3-sonnet-20240229-v1:0',
       },
     });
 
@@ -329,7 +329,7 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
       actions: ['bedrock:InvokeModel'],
       // 使用するClaude Sonnet 4.5のARNに限定
       resources: [
-        `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0`,
+        `arn:aws:bedrock:${cdk.Aws.REGION}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
       ],
     }));
 
