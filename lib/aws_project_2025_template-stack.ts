@@ -334,16 +334,28 @@ export class AwsProject2025TemplateStack extends cdk.Stack {
     }));
 
     // ----------------------------------------
-    // S3トリガーの設定 (Lambda関数⑤)
+    // S3トリガーの設定 (Lambda関数⑤) - 修正版
     // ----------------------------------------
+    
+    // 1. .jpg ファイルが作成された時をトリガーとする設定
     analyzeImageFunction.addEventSource(
       // S3のイベントソース(トリガー)を設定
-      // ここで S3EventSource クラスが使用されます
       new S3EventSource(imageBucket, {
         events: [s3.EventType.OBJECT_CREATED], // ファイルが作成された時をトリガーとする
-        // フィルタ: 特定の拡張子のファイルのみを対象とする
+        // フィルタ: .jpg ファイルのみを対象とする
         filters: [
-          { suffix: '.jpg' },
+          { suffix: '.jpg' }, 
+        ],
+      }),
+    );
+
+    // 2. .png ファイルが作成された時をトリガーとする設定
+    analyzeImageFunction.addEventSource(
+      // S3のイベントソース(トリガー)を設定
+      new S3EventSource(imageBucket, {
+        events: [s3.EventType.OBJECT_CREATED], // ファイルが作成された時をトリガーとする
+        // フィルタ: .png ファイルのみを対象とする
+        filters: [
           { suffix: '.png' },
         ],
       }),
