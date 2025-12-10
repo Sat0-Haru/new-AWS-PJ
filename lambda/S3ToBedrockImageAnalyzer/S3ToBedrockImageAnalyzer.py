@@ -18,7 +18,7 @@ ANALYSIS_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID')
 # CDKで設定したS3バケット名
 GENERATED_IMAGE_BUCKET_NAME = os.environ.get('GENERATED_IMAGE_BUCKET_NAME')
 # 画像生成モデルID (固定値として利用)
-GENERATION_MODEL_ID = 'stability.stable-diffusion-xl' 
+GENERATION_MODEL_ID = 'stability.stable-diffusion-xl-v1'
 
 # AWSクライアントの初期化
 s3_client = boto3.client('s3')
