@@ -6,6 +6,7 @@ import os
 import logging
 from datetime import datetime
 import time
+from botocore.exceptions import ClientError
 
 # ロギング設定
 logger = logging.getLogger()
@@ -91,7 +92,41 @@ def handler(event, context):
 
 def get_image_from_s3(bucket: str, key: str):
     """S3から画像ファイルを読み込み、MIMEタイプを推定する"""
-    # ... (変更なし)
+    
+    # MIMEタイプを判別するためのファイル拡張子チェック (S3クライアント呼び出し前に実行)
+    if key.lower().endswith(('.jpg', '.jpeg')):
+        expected_mime_type = 'image/jpeg'
+    elif key.lower().endswith('.png'):
+        expected_mime_type = 'image/png'
+    else:
+        logger.error(f"Unsupported file type: {key}. Only .jpg and .png are supported.")
+        # サポートされていないファイルの場合は、ここでエラーを発生させる
+        raise ValueError(f"Unsupported file type for analysis: {key}")
+
+    try:
+        # S3からオブジェクトを取得
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        image_bytes = response['Body'].read()
+        
+        # S3から取得したContentTypeをそのまま使用（または推定値を使用）
+        mime_type = response.get('ContentType', expected_mime_type)
+        
+        return image_bytes, mime_type
+
+    except ClientError as e:
+        # S3のクライアントエラー（ファイルアクセス権限やファイルなし）を補足
+        error_code = e.response['Error']['Code']
+        if error_code == 'NoSuchKey':
+            logger.error(f"S3 Object Not Found: s3://{bucket}/{key}")
+        elif error_code == 'AccessDenied':
+            logger.error(f"S3 Access Denied: Check Lambda IAM role for s3:GetObject on {bucket}")
+        else:
+            logger.error(f"Unknown S3 ClientError: {e}")
+        # S3の読み込みに失敗した場合、呼び出し元にエラーを再送出する
+        raise 
+    except Exception as e:
+        logger.error(f"Unexpected error in get_image_from_s3: {e}")
+        raise
 
 # --- ヘルパー関数: Claudeによる分析 (修正) ---
 
